@@ -2,7 +2,6 @@
 
 [![Release](https://img.shields.io/github/v/release/quocbao238/mailcrab_client)](https://github.com/quocbao238/mailcrab_client/releases/latest)
 [![CI](https://github.com/quocbao238/mailcrab_client/actions/workflows/release.yml/badge.svg)](https://github.com/quocbao238/mailcrab_client/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A native desktop & mobile client for [MailCrab](https://github.com/tweedegolf/mailcrab) — the email testing server for development. Stop keeping a browser tab open: get your test emails in a native app with **system notifications the moment mail arrives**, an unread badge on the app icon, and a fast searchable inbox.
 
@@ -87,6 +86,6 @@ git push --tags
 
 CI runs the tests, builds **Android APK, Linux tar.gz, macOS DMG, and Windows zip** (all stamped with the tag version), and publishes them to a GitHub Release with auto-generated notes.
 
-## 📄 License
+## 👤 Author
 
-[MIT](LICENSE) — © 2026 [Bao Bui (@quocbao238)](https://github.com/quocbao238)
+[Bao Bui (@quocbao238)](https://github.com/quocbao238)
