@@ -15,14 +15,16 @@ A native desktop & mobile client for [MailCrab](https://github.com/tweedegolf/ma
 
 ## 📥 Download
 
-Grab the latest version from the **[Releases page](https://github.com/quocbao238/mailcrab_client/releases/latest)**:
+Click your platform to download the latest version directly:
 
-| Platform | File |
-|---|---|
-| 🍎 macOS (Intel & Apple Silicon) | `MailCrab-<version>-macos.dmg` |
-| 🐧 Linux (x64) | `MailCrab-<version>-linux-x64.tar.gz` |
-| 🪟 Windows (x64) | `MailCrab-<version>-windows-x64.zip` |
-| 🤖 Android | `MailCrab-<version>-android.apk` |
+<p align="center">
+  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-macos.dmg"><img src="https://img.shields.io/badge/macOS-Download%20.dmg-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS"></a>&nbsp;
+  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-linux-x64.tar.gz"><img src="https://img.shields.io/badge/Linux-Download%20.tar.gz-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download for Linux"></a>&nbsp;
+  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-android.apk"><img src="https://img.shields.io/badge/Android-Download%20.apk-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download for Android"></a>&nbsp;
+  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-windows-x64.zip"><img src="https://img.shields.io/badge/Windows-Download%20.zip-0078D4?style=for-the-badge" alt="Download for Windows"></a>
+</p>
+
+macOS builds are universal (Intel & Apple Silicon); Linux/Windows are x64. Older versions live on the [Releases page](https://github.com/quocbao238/mailcrab_client/releases).
 
 ## 🚀 Install
 
@@ -37,7 +39,7 @@ Grab the latest version from the **[Releases page](https://github.com/quocbao238
 ### Linux
 
 ```bash
-tar xzf MailCrab-<version>-linux-x64.tar.gz -C ~/mailcrab
+mkdir -p ~/mailcrab && tar xzf MailCrab-linux-x64.tar.gz -C ~/mailcrab
 ~/mailcrab/mailcrab_client
 ```
 
