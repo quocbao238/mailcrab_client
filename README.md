@@ -1,72 +1,90 @@
-# MailCrab Client
+# 🦀 MailCrab Client
 
-A Flutter desktop/mobile client for [MailCrab](https://github.com/tweedegolf/mailcrab) — the SMTP test server for development. Instead of keeping the MailCrab web UI open in a browser tab, this app shows incoming test mail in a native window and fires a **local system notification** the moment a new email arrives.
+[![Release](https://img.shields.io/github/v/release/quocbao238/mailcrab_client)](https://github.com/quocbao238/mailcrab_client/releases/latest)
+[![CI](https://github.com/quocbao238/mailcrab_client/actions/workflows/release.yml/badge.svg)](https://github.com/quocbao238/mailcrab_client/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Maintained by [@quocbao238](https://github.com/quocbao238).
+A native desktop & mobile client for [MailCrab](https://github.com/tweedegolf/mailcrab) — the email testing server for development. Stop keeping a browser tab open: get your test emails in a native app with **system notifications the moment mail arrives**, an unread badge on the app icon, and a fast searchable inbox.
 
-## Features
+- ⚡ **Real-time inbox** — new mail appears instantly (WebSocket, with automatic fallback to polling)
+- 🔔 **Native notifications** — with a preview of the email body; click to open the message
+- 🔴 **Unread badge** on the app icon (macOS Dock, Windows taskbar)
+- 📎 View HTML / plain text / raw source / headers, download attachments
+- 🎨 Light/dark mode and theme colors, applied instantly
+- 🔌 Works with any MailCrab server — local Docker or remote, HTTPS and path prefixes supported
 
-- **Live inbox** — connects to MailCrab's WebSocket (`/ws`), new mail appears instantly (no polling)
-- **Native notifications** — system notification on new mail; click it to jump to the message (toggle in Settings). Settings shows the OS permission status, can re-request it, and walks you through enabling it manually if it was denied
-- **Icon badge** — unread-mail count on the app icon: macOS Dock badge and Windows taskbar overlay (red 1–9/9+ counter)
-- **Full message view** — HTML, plain-text, raw source, and headers tabs; inline `cid:` images resolved automatically
-- **Attachments** — one click to download/open via the MailCrab API
-- **Search & unread badges** — filter by sender/subject, unread counter in the title bar
-- **Manage mail** — delete one message or wipe the whole mailbox
-- **Connection awareness** — internet connectivity check (offline banner) plus server status chip (Live / Connecting / Polling / Offline) with automatic reconnect and catch-up refresh
-- **Polling fallback** — if a proxy blocks the WebSocket upgrade, the app polls `/api/messages` every 10 s so live updates and notifications keep working
-- **Custom theme** — light/dark/system mode and a pick-your-color Material 3 palette, applied instantly and persisted locally (works on Windows/macOS/Linux via shared_preferences)
-- **Configurable server** — any host/port, HTTPS and `MAILCRAB_PREFIX` path prefixes supported; test connection from the Settings dialog
+## 📥 Download
 
-## Architecture
+Grab the latest version from the **[Releases page](https://github.com/quocbao238/mailcrab_client/releases/latest)**:
 
-State management is **BLoC** (`flutter_bloc`).
+| Platform | File |
+|---|---|
+| 🍎 macOS (Intel & Apple Silicon) | `MailCrab-<version>-macos.dmg` |
+| 🐧 Linux (x64) | `MailCrab-<version>-linux-x64.tar.gz` |
+| 🪟 Windows (x64) | `MailCrab-<version>-windows-x64.zip` |
+| 🤖 Android | `MailCrab-<version>-android.apk` |
 
+## 🚀 Install
+
+### macOS
+
+1. Open the `.dmg` and drag **MailCrab** into **Applications**.
+2. First launch: macOS may warn that the app is from an unidentified developer (it isn't notarized yet). Fix it with either:
+   - **System Settings → Privacy & Security →** scroll down **→ Open Anyway**, or
+   - Terminal: `xattr -cr /Applications/MailCrab.app`
+3. Allow notifications when prompted. If banners don't appear, make sure **Focus / Do Not Disturb is off**.
+
+### Linux
+
+```bash
+tar xzf MailCrab-<version>-linux-x64.tar.gz -C ~/mailcrab
+~/mailcrab/mailcrab_client
 ```
-lib/
-├── main.dart                          # bootstrap: settings, notifications, BlocProvider
-└── src/
-    ├── bloc/
-    │   ├── mailbox_bloc.dart          # events → states; wires WS + connectivity + notifications
-    │   ├── mailbox_event.dart         # UI events + internal (_MailReceived, _WsStatusChanged, …)
-    │   └── mailbox_state.dart         # single immutable state (Equatable)
-    ├── models/models.dart             # MailMessage / MailMessageMetadata / Address / Attachment
-    ├── services/
-    │   ├── api_client.dart            # REST: /api/messages, /api/message/{id}, delete, raw, …
-    │   ├── ws_listener.dart           # /ws listener with exponential-backoff reconnect
-    │   ├── notification_service.dart  # flutter_local_notifications (macOS/iOS/Android/Linux/Windows)
-    │   └── settings_service.dart      # persisted app settings (shared_preferences)
-    └── ui/                            # responsive master–detail UI (Material 3)
-```
 
-## Getting started
+Requires GTK 3 (preinstalled on most desktops) and a notification daemon (GNOME, KDE, XFCE… all work).
 
-1. Run a MailCrab server, e.g.:
+### Windows
+
+Unzip anywhere and run `mailcrab_client.exe`. Notifications appear as standard Windows toasts; the unread count shows as a red overlay on the taskbar icon.
+
+### Android
+
+Install the APK (enable "Install from unknown sources" if asked). To reach a MailCrab running on your computer, use your machine's LAN IP in Settings (e.g. `http://192.168.1.20:1080`) — or `http://10.0.2.2:1080` from the Android emulator.
+
+## 🏁 Getting started
+
+1. Run a MailCrab server if you don't have one:
 
    ```bash
    docker run --rm -p 1080:1080 -p 1025:1025 marlonb/mailcrab:latest
    ```
 
-2. Run the app (macOS is the primary target):
+2. Open MailCrab Client — it connects to `http://localhost:1080` by default. Use **Settings** (⚙) to point it at any other server and hit **Test connection**.
+3. Point your application's SMTP settings at `localhost:1025` and watch the mail roll in — with a notification for every message.
 
-   ```bash
-   flutter run -d macos
-   ```
+## 🛠 Development
 
-3. The app connects to `http://localhost:1080` by default — change it in **Settings** (gear icon).
-
-4. Point your application's SMTP config at `localhost:1025` and watch mail arrive.
-
-> **Android emulator note:** use `http://10.0.2.2:1080` to reach a MailCrab running on the host machine.
-
-## Tests
+Built with Flutter (BLoC state management). PRs welcome!
 
 ```bash
-flutter test
+flutter pub get
+flutter test          # unit tests
+flutter run -d macos  # or: -d linux, -d windows, an Android device…
 ```
 
-Covers JSON parsing of the MailCrab API types, server-URL normalization, and mailbox state logic.
+Project layout: `lib/src/bloc` (state), `lib/src/services` (MailCrab REST/WebSocket API, notifications, badges, settings), `lib/src/ui` (Material 3 responsive UI). The MailCrab API surface used: `GET /api/messages`, `GET /api/message/{id}`, `POST /api/delete/{id}`, `POST /api/delete-all`, and the `/ws` WebSocket for real-time events.
 
-## Author
+### Releasing
 
-Bao Bui — [github.com/quocbao238](https://github.com/quocbao238)
+Releases are fully automated ([release.yml](.github/workflows/release.yml)). Maintainers just push a semver tag:
+
+```bash
+git tag v1.2.3
+git push --tags
+```
+
+CI runs the tests, builds **Android APK, Linux tar.gz, macOS DMG, and Windows zip** (all stamped with the tag version), and publishes them to a GitHub Release with auto-generated notes.
+
+## 📄 License
+
+[MIT](LICENSE) — © 2026 [Bao Bui (@quocbao238)](https://github.com/quocbao238)
