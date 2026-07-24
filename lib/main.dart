@@ -8,13 +8,19 @@ import 'src/services/notification_service.dart';
 import 'src/services/settings_service.dart';
 import 'src/ui/home_page.dart';
 
+/// Set via `--dart-define=SCREENSHOT_MODE=true` when capturing marketing
+/// screenshots: skips the OS notification-permission prompt.
+const bool kScreenshotMode = bool.fromEnvironment('SCREENSHOT_MODE');
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final settings = await SettingsService.load();
   final notifications = NotificationService();
-  // Fire-and-forget: the OS permission prompt must not block first paint.
-  unawaited(notifications.init());
+  if (!kScreenshotMode) {
+    // Fire-and-forget: the OS permission prompt must not block first paint.
+    unawaited(notifications.init());
+  }
 
   runApp(MailCrabApp(settings: settings, notifications: notifications));
 }

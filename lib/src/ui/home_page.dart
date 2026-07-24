@@ -20,16 +20,20 @@ class HomePage extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('🦀 '),
-                const Text('MailCrab'),
-                if (state.unreadCount > 0) ...[
-                  const SizedBox(width: 10),
-                  Badge.count(count: state.unreadCount),
+            title: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🦀 '),
+                  const Text('MailCrab'),
+                  if (state.unreadCount > 0) ...[
+                    const SizedBox(width: 10),
+                    Badge.count(count: state.unreadCount),
+                  ],
                 ],
-              ],
+              ),
             ),
             actions: [
               _StatusChip(state: state),

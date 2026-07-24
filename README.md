@@ -5,6 +5,10 @@
 
 A native desktop & mobile client for [MailCrab](https://github.com/tweedegolf/mailcrab) — the email testing server for development. Stop keeping a browser tab open: get your test emails in a native app with **system notifications the moment mail arrives**, an unread badge on the app icon, and a fast searchable inbox.
 
+<p align="center">
+  <img src="docs/screenshots/mobile.png" alt="MailCrab Client — live inbox with native notification, HTML message view, dark mode" width="900">
+</p>
+
 - ⚡ **Real-time inbox** — new mail appears instantly (WebSocket, with automatic fallback to polling)
 - 🔔 **Native notifications** — with a preview of the email body; click to open the message
 - 🔴 **Unread badge** on the app icon (macOS Dock, Windows taskbar)
