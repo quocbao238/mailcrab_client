@@ -14,16 +14,15 @@ A native desktop & mobile client for [MailCrab](https://github.com/tweedegolf/ma
 
 ## 📥 Download
 
-Click your platform to download the latest version directly:
-
 <p align="center">
-  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-macos.dmg"><img src="https://img.shields.io/badge/macOS-Download%20.dmg-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS"></a>&nbsp;
-  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-linux-x64.tar.gz"><img src="https://img.shields.io/badge/Linux-Download%20.tar.gz-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download for Linux"></a>&nbsp;
-  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-android.apk"><img src="https://img.shields.io/badge/Android-Download%20.apk-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download for Android"></a>&nbsp;
-  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-windows-x64.zip"><img src="https://img.shields.io/badge/Windows-Download%20.zip-0078D4?style=for-the-badge" alt="Download for Windows"></a>
+  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-macos.dmg"><img src="docs/badges/download-macos.png" width="240" alt="Download for macOS"></a>&nbsp;&nbsp;
+  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-linux-x64.tar.gz"><img src="docs/badges/download-linux.png" width="240" alt="Download for Linux"></a>
+  <br><br>
+  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-android.apk"><img src="docs/badges/download-android.png" width="240" alt="Download for Android"></a>&nbsp;&nbsp;
+  <a href="https://github.com/quocbao238/mailcrab_client/releases/latest/download/MailCrab-windows-x64.zip"><img src="docs/badges/download-windows.png" width="240" alt="Download for Windows"></a>
 </p>
 
-macOS builds are universal (Intel & Apple Silicon); Linux/Windows are x64. Older versions live on the [Releases page](https://github.com/quocbao238/mailcrab_client/releases).
+<p align="center"><sub>macOS: universal (Intel & Apple Silicon) · Linux/Windows: x64 · <a href="https://github.com/quocbao238/mailcrab_client/releases">older versions</a></sub></p>
 
 ## 🚀 Install
 
