@@ -62,30 +62,3 @@ Install the APK (enable "Install from unknown sources" if asked). To reach a Mai
 
 2. Open MailCrab Client — it connects to `http://localhost:1080` by default. Use **Settings** (⚙) to point it at any other server and hit **Test connection**.
 3. Point your application's SMTP settings at `localhost:1025` and watch the mail roll in — with a notification for every message.
-
-## 🛠 Development
-
-Built with Flutter (BLoC state management). PRs welcome!
-
-```bash
-flutter pub get
-flutter test          # unit tests
-flutter run -d macos  # or: -d linux, -d windows, an Android device…
-```
-
-Project layout: `lib/src/bloc` (state), `lib/src/services` (MailCrab REST/WebSocket API, notifications, badges, settings), `lib/src/ui` (Material 3 responsive UI). The MailCrab API surface used: `GET /api/messages`, `GET /api/message/{id}`, `POST /api/delete/{id}`, `POST /api/delete-all`, and the `/ws` WebSocket for real-time events.
-
-### Releasing
-
-Releases are fully automated ([release.yml](.github/workflows/release.yml)). Maintainers just push a semver tag:
-
-```bash
-git tag v1.2.3
-git push --tags
-```
-
-CI runs the tests, builds **Android APK, Linux tar.gz, macOS DMG, and Windows zip** (all stamped with the tag version), and publishes them to a GitHub Release with auto-generated notes.
-
-## 👤 Author
-
-[Bao Bui (@quocbao238)](https://github.com/quocbao238)
