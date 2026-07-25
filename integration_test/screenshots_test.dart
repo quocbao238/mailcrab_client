@@ -71,9 +71,9 @@ void main() {
     await binding.takeScreenshot('$device-detail-dark');
 
     if (!wide) {
-      final back = find.byTooltip('Back to list');
+      final back = find.byType(BackButton);
       if (back.evaluate().isNotEmpty) {
-        await tester.tap(back);
+        await tester.tap(back.first);
         await settle(tester);
       }
       await binding.takeScreenshot('$device-list-dark');

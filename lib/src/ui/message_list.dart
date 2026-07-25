@@ -39,33 +39,35 @@ class _MessageListPaneState extends State<MessageListPane> {
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) => context
-                    .read<MailboxBloc>()
-                    .add(MailboxFilterChanged(value)),
-                decoration: InputDecoration(
-                  hintText: 'Search sender or subject…',
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  suffixIcon: state.filter.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Clear search',
-                          icon: const Icon(Icons.close, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            context
-                                .read<MailboxBloc>()
-                                .add(const MailboxFilterChanged(''));
-                          },
-                        ),
-                  isDense: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              // Gmail-style pill search bar.
+              child: Material(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(28),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) => context
+                      .read<MailboxBloc>()
+                      .add(MailboxFilterChanged(value)),
+                  decoration: InputDecoration(
+                    hintText: 'Search in mail',
+                    prefixIcon: const Icon(Icons.search, size: 22),
+                    suffixIcon: state.filter.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              context
+                                  .read<MailboxBloc>()
+                                  .add(const MailboxFilterChanged(''));
+                            },
+                          ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
               ),
             ),

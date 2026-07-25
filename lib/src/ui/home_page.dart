@@ -19,6 +19,18 @@ class HomePage extends StatelessWidget {
         final bloc = context.read<MailboxBloc>();
         final narrow = MediaQuery.sizeOf(context).width < _wideBreakpoint;
 
+        // Gmail-style on phones: an open message is its own screen with a
+        // standard app bar (back + actions). Android back clears selection.
+        if (narrow && state.selectedId != null) {
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) bloc.add(const MailboxSelectionCleared());
+            },
+            child: const MobileMessageScreen(),
+          );
+        }
+
         return Scaffold(
           appBar: AppBar(
             title: Row(
@@ -127,13 +139,11 @@ class HomePage extends StatelessWidget {
                         children: [
                           SizedBox(width: 380, child: MessageListPane()),
                           VerticalDivider(width: 1),
-                          Expanded(child: MessageDetailPane(showBack: false)),
+                          Expanded(child: MessageDetailPane()),
                         ],
                       );
                     }
-                    return state.selectedId == null
-                        ? const MessageListPane()
-                        : const MessageDetailPane(showBack: true);
+                    return const MessageListPane();
                   },
                 ),
               ),

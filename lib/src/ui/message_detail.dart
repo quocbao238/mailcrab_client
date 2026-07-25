@@ -8,10 +8,11 @@ import '../models/models.dart';
 import 'formatting.dart';
 
 class MessageDetailPane extends StatelessWidget {
-  /// Shows a back button when the layout has no side-by-side list.
-  final bool showBack;
+  /// Whether the open-in-browser / delete actions render inside the pane
+  /// (desktop). On phones they live in [MobileMessageScreen]'s app bar.
+  final bool showActions;
 
-  const MessageDetailPane({super.key, required this.showBack});
+  const MessageDetailPane({super.key, this.showActions = true});
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +30,7 @@ class MessageDetailPane extends StatelessWidget {
           child = _MessageView(
             key: ValueKey(state.selectedMessage!.id),
             message: state.selectedMessage!,
-            showBack: showBack,
+            showActions: showActions,
           );
         }
         return AnimatedSwitcher(
@@ -37,6 +38,49 @@ class MessageDetailPane extends StatelessWidget {
           switchInCurve: Curves.easeOut,
           switchOutCurve: Curves.easeIn,
           child: child,
+        );
+      },
+    );
+  }
+}
+
+/// Gmail-style full-screen message view for phones: its own app bar with a
+/// standard back button and the message actions on the right.
+class MobileMessageScreen extends StatelessWidget {
+  const MobileMessageScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<MailboxBloc, MailboxState>(
+      builder: (context, state) {
+        final bloc = context.read<MailboxBloc>();
+        final message = state.selectedMessage;
+        return Scaffold(
+          appBar: AppBar(
+            leading: BackButton(
+              onPressed: () => bloc.add(const MailboxSelectionCleared()),
+            ),
+            actions: message == null
+                ? null
+                : [
+                    IconButton(
+                      tooltip: 'Open in browser',
+                      icon: const Icon(Icons.open_in_new),
+                      onPressed: () => launchUrl(
+                        bloc.api.bodyUri(message.id),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Delete message',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () =>
+                          bloc.add(MailboxMessageDeleted(message.id)),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+          ),
+          body: const MessageDetailPane(showActions: false),
         );
       },
     );
@@ -69,10 +113,10 @@ class _NoSelection extends StatelessWidget {
 
 class _MessageView extends StatefulWidget {
   final MailMessage message;
-  final bool showBack;
+  final bool showActions;
 
   const _MessageView(
-      {super.key, required this.message, required this.showBack});
+      {super.key, required this.message, required this.showActions});
 
   @override
   State<_MessageView> createState() => _MessageViewState();
@@ -137,7 +181,7 @@ class _MessageViewState extends State<_MessageView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Header(message: message, showBack: widget.showBack),
+          _Header(message: message, showActions: widget.showActions),
           if (message.attachments.isNotEmpty) _AttachmentsRow(message: message),
           TabBar(
             isScrollable: true,
@@ -158,84 +202,125 @@ class _MessageViewState extends State<_MessageView> {
 
 class _Header extends StatelessWidget {
   final MailMessage message;
-  final bool showBack;
+  final bool showActions;
 
-  const _Header({required this.message, required this.showBack});
+  const _Header({required this.message, required this.showActions});
+
+  String _initials(String source) {
+    final parts = source
+        .replaceAll(RegExp(r'[<>@].*'), '')
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+        .toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bloc = context.read<MailboxBloc>();
 
+    final senderName = message.from.short == '(unknown)'
+        ? message.envelopeFrom
+        : message.from.short;
+    final senderEmail = message.from.email ?? message.envelopeFrom;
     final recipients = message.to.isNotEmpty
-        ? message.to.map((a) => a.display).join(', ')
+        ? message.to.map((a) => a.short).join(', ')
         : message.envelopeRecipients.join(', ');
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+      padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Subject — big Gmail-style title (+ actions on desktop).
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (showBack)
-                IconButton(
-                  tooltip: 'Back to list',
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () =>
-                      bloc.add(const MailboxSelectionCleared()),
-                ),
               Expanded(
                 child: SelectableText(
                   message.displaySubject,
-                  style: theme.textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.headlineSmall
+                      ?.copyWith(fontWeight: FontWeight.w500, height: 1.25),
                 ),
               ),
-              IconButton(
-                tooltip: 'Open in browser',
-                icon: const Icon(Icons.open_in_new),
-                onPressed: () => launchUrl(
-                  bloc.api.bodyUri(message.id),
-                  mode: LaunchMode.externalApplication,
+              if (showActions) ...[
+                IconButton(
+                  tooltip: 'Open in browser',
+                  icon: const Icon(Icons.open_in_new),
+                  onPressed: () => launchUrl(
+                    bloc.api.bodyUri(message.id),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Delete message',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () =>
+                      bloc.add(MailboxMessageDeleted(message.id)),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Sender row: avatar · name + "to …" · time (Gmail layout).
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary,
+                child: Text(
+                  _initials(senderName),
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ),
-              IconButton(
-                tooltip: 'Delete message',
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () =>
-                    bloc.add(MailboxMessageDeleted(message.id)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            senderName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          formatListTime(message.dateTime),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                    Tooltip(
+                      message:
+                          'From $senderEmail\n${formatFullTime(message.dateTime)} · ${message.size}',
+                      child: Text(
+                        'to $recipients',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          SelectableText.rich(
-            TextSpan(
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              children: [
-                const TextSpan(
-                    text: 'From  ',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                TextSpan(
-                    text: message.from.display == '(unknown)'
-                        ? message.envelopeFrom
-                        : message.from.display),
-                const TextSpan(
-                    text: '\nTo      ',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                TextSpan(text: recipients),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${formatFullTime(message.dateTime)}   ·   ${message.size}',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.outline),
-          ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
         ],
       ),
     );
