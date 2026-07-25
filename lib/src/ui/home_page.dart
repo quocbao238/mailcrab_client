@@ -17,44 +17,84 @@ class HomePage extends StatelessWidget {
     return BlocBuilder<MailboxBloc, MailboxState>(
       builder: (context, state) {
         final bloc = context.read<MailboxBloc>();
+        final narrow = MediaQuery.sizeOf(context).width < _wideBreakpoint;
 
         return Scaffold(
           appBar: AppBar(
-            title: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('🦀 '),
-                  const Text('MailCrab'),
-                  if (state.unreadCount > 0) ...[
-                    const SizedBox(width: 10),
-                    Badge.count(count: state.unreadCount),
-                  ],
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🦀 '),
+                const Text('MailCrab'),
+                if (state.unreadCount > 0) ...[
+                  const SizedBox(width: 10),
+                  Badge.count(count: state.unreadCount),
                 ],
-              ),
+              ],
             ),
-            actions: [
-              _StatusChip(state: state),
-              SpinIconButton(
-                tooltip: 'Refresh',
-                icon: Icons.refresh,
-                spinning: state.loadingList,
-                onPressed: () => bloc.add(const MailboxRefreshRequested()),
-              ),
-              BouncyIconButton(
-                tooltip: 'Delete all messages',
-                icon: Icons.delete_sweep_outlined,
-                onPressed: () => _confirmDeleteAll(context),
-              ),
-              IconButton(
-                tooltip: 'Settings',
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: () => showSettingsDialog(context),
-              ),
-              const SizedBox(width: 4),
-            ],
+            actions: narrow
+                // Compact on phones: status dot + overflow menu.
+                // Refresh is covered by pull-to-refresh on the list.
+                ? [
+                    _StatusChip(state: state, compact: true),
+                    PopupMenuButton<_MenuAction>(
+                      tooltip: 'Menu',
+                      onSelected: (action) => switch (action) {
+                        _MenuAction.refresh =>
+                          bloc.add(const MailboxRefreshRequested()),
+                        _MenuAction.deleteAll => _confirmDeleteAll(context),
+                        _MenuAction.settings => showSettingsDialog(context),
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: _MenuAction.refresh,
+                          child: ListTile(
+                            leading: Icon(Icons.refresh),
+                            title: Text('Refresh'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: _MenuAction.deleteAll,
+                          child: ListTile(
+                            leading: Icon(Icons.delete_sweep_outlined),
+                            title: Text('Delete all messages'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: _MenuAction.settings,
+                          child: ListTile(
+                            leading: Icon(Icons.settings_outlined),
+                            title: Text('Settings'),
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 4),
+                  ]
+                : [
+                    _StatusChip(state: state),
+                    SpinIconButton(
+                      tooltip: 'Refresh',
+                      icon: Icons.refresh,
+                      spinning: state.loadingList,
+                      onPressed: () =>
+                          bloc.add(const MailboxRefreshRequested()),
+                    ),
+                    BouncyIconButton(
+                      tooltip: 'Delete all messages',
+                      icon: Icons.delete_sweep_outlined,
+                      onPressed: () => _confirmDeleteAll(context),
+                    ),
+                    IconButton(
+                      tooltip: 'Settings',
+                      icon: const Icon(Icons.settings_outlined),
+                      onPressed: () => showSettingsDialog(context),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
           ),
           body: Column(
             children: [
@@ -130,10 +170,15 @@ class HomePage extends StatelessWidget {
   }
 }
 
+enum _MenuAction { refresh, deleteAll, settings }
+
 class _StatusChip extends StatelessWidget {
   final MailboxState state;
 
-  const _StatusChip({required this.state});
+  /// Dot only (no label) — used in the phone app bar.
+  final bool compact;
+
+  const _StatusChip({required this.state, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
@@ -172,8 +217,10 @@ class _StatusChip extends StatelessWidget {
                 color: color,
                 pinging: state.serverStatus == ServerStatus.connected,
               ),
-            const SizedBox(width: 6),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            if (!compact) ...[
+              const SizedBox(width: 6),
+              Text(label, style: Theme.of(context).textTheme.bodySmall),
+            ],
           ],
         ),
       ),

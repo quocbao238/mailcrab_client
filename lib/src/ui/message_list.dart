@@ -21,6 +21,15 @@ class _MessageListPaneState extends State<MessageListPane> {
     super.dispose();
   }
 
+  Future<void> _refresh(BuildContext context) async {
+    final bloc = context.read<MailboxBloc>();
+    bloc.add(const MailboxRefreshRequested());
+    // Keep the spinner visible until the reload finishes.
+    await bloc.stream
+        .firstWhere((s) => !s.loadingList)
+        .timeout(const Duration(seconds: 10), onTimeout: () => bloc.state);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<MailboxBloc, MailboxState>(
@@ -62,16 +71,20 @@ class _MessageListPaneState extends State<MessageListPane> {
             ),
             if (state.loadingList) const LinearProgressIndicator(minHeight: 2),
             Expanded(
-              child: messages.isEmpty
-                  ? _EmptyState(hasFilter: state.filter.trim().isNotEmpty)
-                  : ListView.separated(
-                      itemCount: messages.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) => _MessageTile(
-                        message: messages[index],
-                        selected: messages[index].id == state.selectedId,
+              child: RefreshIndicator(
+                onRefresh: () => _refresh(context),
+                child: messages.isEmpty
+                    ? _EmptyState(hasFilter: state.filter.trim().isNotEmpty)
+                    : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: messages.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (context, index) => _MessageTile(
+                          message: messages[index],
+                          selected: messages[index].id == state.selectedId,
+                        ),
                       ),
-                    ),
+              ),
             ),
           ],
         );
@@ -102,10 +115,21 @@ class _MessageTileState extends State<_MessageTile> {
       fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
     );
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: ListTile(
+    return Dismissible(
+      key: ValueKey('dismiss-${message.id}'),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) =>
+          context.read<MailboxBloc>().add(MailboxMessageDeleted(message.id)),
+      background: Container(
+        color: theme.colorScheme.error,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: Icon(Icons.delete_outline, color: theme.colorScheme.onError),
+      ),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: ListTile(
         selected: widget.selected,
         selectedTileColor:
             theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
@@ -160,6 +184,7 @@ class _MessageTileState extends State<_MessageTile> {
                         size: 14, color: theme.colorScheme.onSurfaceVariant),
                 ],
               ),
+        ),
       ),
     );
   }
