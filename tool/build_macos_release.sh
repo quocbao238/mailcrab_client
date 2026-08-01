@@ -10,7 +10,13 @@
 #   export MACOS_SIGN_IDENTITY="Developer ID Application: Name (TEAMID)"
 #   security find-identity -v -p codesigning     # to list what you have
 #
-# Notarisation is skipped unless a notarytool profile exists. Create one once:
+# Notarisation is skipped unless a notarytool profile exists. Create one once,
+# with an app-specific password from appleid.apple.com:
+#   xcrun notarytool store-credentials mailcrab-notary \
+#     --apple-id you@example.com --team-id TEAMID --password xxxx-xxxx-xxxx-xxxx
+#
+# Or with an App Store Connect API key, which is not tied to a personal Apple
+# ID and is the better choice if this ever moves to CI:
 #   xcrun notarytool store-credentials mailcrab-notary \
 #     --key AuthKey_XXXX.p8 --key-id KEYID --issuer ISSUER-UUID
 #
