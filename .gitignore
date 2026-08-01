@@ -46,3 +46,7 @@ app.*.map.json
 
 # Local distribution artifacts
 dist/
+
+# Produced by tool/build_macos_release.sh
+/MailCrab-macos.dmg
+/dmg_stage/
