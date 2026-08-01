@@ -37,12 +37,10 @@ A native desktop & mobile client for [MailCrab](https://github.com/tweedegolf/ma
 ### macOS
 
 1. Open the `.dmg` and drag **MailCrab** into **Applications**.
-2. First launch: macOS may warn that the app is from an unidentified developer (it isn't notarized yet). Fix it with either:
-   - **System Settings → Privacy & Security →** scroll down **→ Open Anyway**, or
-   - Terminal: `xattr -d com.apple.quarantine /Applications/MailCrab.app`
-
-   On macOS 15 and later, Control-click → Open no longer bypasses this — use the System Settings route above.
+2. Open it. The build is signed with a Developer ID and notarised by Apple, so no security warning appears.
 3. Allow notifications when prompted. If banners don't appear, make sure **Focus / Do Not Disturb is off**.
+
+Releases before v1.1.0 were not notarised. To open one of those, go to **System Settings → Privacy & Security** and scroll down to **Open Anyway** — Control-click → Open stopped working as a bypass in macOS 15.
 
 ### Linux
 
