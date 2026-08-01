@@ -10,6 +10,11 @@ set(BINARY_NAME "mailcrab_client")
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)
 
+# The WebView2 SDK pulls in <experimental/coroutine>, which recent MSVC
+# rejects with a hard error (STL1011) instead of a warning. Applied at
+# directory scope so plugin targets added below inherit it.
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Define build configuration option.
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTICONFIG)
