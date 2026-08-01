@@ -9,14 +9,13 @@ import '../services/settings_service.dart';
 import '../services/sso_session_webview.dart';
 import 'sso_login_dialog.dart';
 
-const _githubUrl = 'https://github.com/quocbao238';
+const _githubUrl = 'https://github.com/quocbao238/mailcrab_client';
 
 Future<void> showSettingsDialog(BuildContext context) {
   final bloc = context.read<MailboxBloc>();
   return showDialog(
     context: context,
-    builder: (_) =>
-        BlocProvider.value(value: bloc, child: const _SettingsDialog()),
+    builder: (_) => BlocProvider.value(value: bloc, child: const _SettingsDialog()),
   );
 }
 
@@ -64,19 +63,13 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   }
 
   Future<void> _refreshPermission() async {
-    final status = await context
-        .read<MailboxBloc>()
-        .notifications
-        .checkPermission();
+    final status = await context.read<MailboxBloc>().notifications.checkPermission();
     if (mounted) setState(() => _permission = status);
   }
 
   Future<void> _requestPermission() async {
     setState(() => _requestingPermission = true);
-    final status = await context
-        .read<MailboxBloc>()
-        .notifications
-        .requestPermission();
+    final status = await context.read<MailboxBloc>().notifications.requestPermission();
     if (mounted) {
       setState(() {
         _permission = status;
@@ -104,21 +97,11 @@ class _SettingsDialogState extends State<_SettingsDialog> {
 
   void _applyAppearance() {
     final bloc = context.read<MailboxBloc>();
-    bloc.add(
-      MailboxSettingsUpdated(
-        bloc.state.settings.copyWith(
-          themeMode: _themeMode,
-          seedColor: _seedColor,
-        ),
-      ),
-    );
+    bloc.add(MailboxSettingsUpdated(bloc.state.settings.copyWith(themeMode: _themeMode, seedColor: _seedColor)));
   }
 
   Future<void> _signInWithSso() async {
-    final cookie = await showSsoLoginDialog(
-      context,
-      serverUrl: _urlController.text,
-    );
+    final cookie = await showSsoLoginDialog(context, serverUrl: _urlController.text);
     if (!mounted || cookie == null || cookie.isEmpty) return;
     setState(() {
       _cookieController.text = cookie;
@@ -132,10 +115,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       _testing = true;
       _testResult = null;
     });
-    final api = MailCrabApi(
-      _urlController.text,
-      authCookie: _cookieController.text.trim(),
-    );
+    final api = MailCrabApi(_urlController.text, authCookie: _cookieController.text.trim());
     try {
       final version = await api.fetchVersion();
       setState(() => _testResult = '✓ Connected — MailCrab $version');
@@ -171,8 +151,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 decoration: const InputDecoration(
                   labelText: 'MailCrab server URL',
                   hintText: 'http://localhost:1080',
-                  helperText:
-                      'Path prefix is supported, e.g. http://host:1080/mailcrab',
+                  helperText: 'Path prefix is supported, e.g. http://host:1080/mailcrab',
                   border: OutlineInputBorder(),
                 ),
                 onSubmitted: (_) => _testConnection(),
@@ -213,11 +192,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                   OutlinedButton.icon(
                     onPressed: _testing ? null : _testConnection,
                     icon: _testing
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.wifi_tethering, size: 18),
                     label: const Text('Test connection'),
                   ),
@@ -228,11 +203,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                         _testResult!,
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: ok
-                              ? Colors.green.shade700
-                              : theme.colorScheme.error,
-                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(color: ok ? Colors.green.shade700 : theme.colorScheme.error),
                       ),
                     ),
                 ],
@@ -241,9 +212,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Notify on new mail'),
-                subtitle: const Text(
-                  'Show a system notification when an email arrives',
-                ),
+                subtitle: const Text('Show a system notification when an email arrives'),
                 value: _notificationsEnabled,
                 onChanged: (v) => setState(() => _notificationsEnabled = v),
               ),
@@ -256,12 +225,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               const Divider(height: 24),
               Text('Appearance', style: theme.textTheme.titleSmall),
               const SizedBox(height: 4),
-              Text(
-                'Applied immediately',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.outline,
-                ),
-              ),
+              Text('Applied immediately', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
               const SizedBox(height: 8),
               SegmentedButton<String>(
                 // Icons push the three segments past a phone's width; the
@@ -271,21 +235,10 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                   ButtonSegment(
                     value: 'system',
                     label: const Text('System'),
-                    icon: narrow
-                        ? null
-                        : const Icon(Icons.brightness_auto, size: 16),
+                    icon: narrow ? null : const Icon(Icons.brightness_auto, size: 16),
                   ),
-                  ButtonSegment(
-                    value: 'light',
-                    label: const Text('Light'),
-                    icon:
-                        narrow ? null : const Icon(Icons.light_mode, size: 16),
-                  ),
-                  ButtonSegment(
-                    value: 'dark',
-                    label: const Text('Dark'),
-                    icon: narrow ? null : const Icon(Icons.dark_mode, size: 16),
-                  ),
+                  ButtonSegment(value: 'light', label: const Text('Light'), icon: narrow ? null : const Icon(Icons.light_mode, size: 16)),
+                  ButtonSegment(value: 'dark', label: const Text('Dark'), icon: narrow ? null : const Icon(Icons.dark_mode, size: 16)),
                 ],
                 selected: {_themeMode},
                 onSelectionChanged: (selection) {
@@ -312,21 +265,10 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                           color: Color(color),
                           shape: BoxShape.circle,
                           border: _seedColor == color
-                              ? Border.all(
-                                  color: theme.colorScheme.onSurface,
-                                  width: 2.5,
-                                )
-                              : Border.all(
-                                  color: theme.colorScheme.outlineVariant,
-                                ),
+                              ? Border.all(color: theme.colorScheme.onSurface, width: 2.5)
+                              : Border.all(color: theme.colorScheme.outlineVariant),
                         ),
-                        child: _seedColor == color
-                            ? const Icon(
-                                Icons.check,
-                                size: 18,
-                                color: Colors.white,
-                              )
-                            : null,
+                        child: _seedColor == color ? const Icon(Icons.check, size: 18, color: Colors.white) : null,
                       ),
                     ),
                 ],
@@ -334,23 +276,16 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               const Divider(height: 24),
               InkWell(
                 borderRadius: BorderRadius.circular(6),
-                onTap: () => launchUrl(
-                  Uri.parse(_githubUrl),
-                  mode: LaunchMode.externalApplication,
-                ),
+                onTap: () => launchUrl(Uri.parse(_githubUrl), mode: LaunchMode.externalApplication),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.code,
-                        size: 16,
-                        color: theme.colorScheme.outline,
-                      ),
+                      Icon(Icons.code, size: 16, color: theme.colorScheme.outline),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          'MailCrab Client — github.com/quocbao238',
+                          'github.com/quocbao238/mailcrab_client',
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.primary,
@@ -368,10 +303,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         FilledButton(
           onPressed: () {
             final bloc = context.read<MailboxBloc>();
@@ -401,12 +333,7 @@ class _PermissionSection extends StatelessWidget {
   final VoidCallback onRequest;
   final VoidCallback onOpenSettings;
 
-  const _PermissionSection({
-    required this.status,
-    required this.requesting,
-    required this.onRequest,
-    required this.onOpenSettings,
-  });
+  const _PermissionSection({required this.status, required this.requesting, required this.onRequest, required this.onOpenSettings});
 
   @override
   Widget build(BuildContext context) {
@@ -416,14 +343,8 @@ class _PermissionSection extends StatelessWidget {
     final (chipColor, chipLabel) = switch (status) {
       null => (theme.colorScheme.outline, 'Checking…'),
       NotificationPermissionStatus.granted => (Colors.green, 'Granted'),
-      NotificationPermissionStatus.denied => (
-        theme.colorScheme.error,
-        'Not granted',
-      ),
-      NotificationPermissionStatus.unknown => (
-        theme.colorScheme.outline,
-        'Not required',
-      ),
+      NotificationPermissionStatus.denied => (theme.colorScheme.error, 'Not granted'),
+      NotificationPermissionStatus.unknown => (theme.colorScheme.outline, 'Not required'),
     };
 
     return Column(
@@ -438,21 +359,12 @@ class _PermissionSection extends StatelessWidget {
           children: [
             Text('System permission:', style: theme.textTheme.bodySmall),
             Icon(Icons.circle, size: 10, color: chipColor),
-            Text(
-              chipLabel,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            Text(chipLabel, style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
             if (status == NotificationPermissionStatus.denied)
               TextButton.icon(
                 onPressed: requesting ? null : onRequest,
                 icon: requesting
-                    ? const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.notifications_active_outlined, size: 16),
                 label: const Text('Request permission'),
               ),
@@ -470,12 +382,7 @@ class _PermissionSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Notifications are blocked for MailCrab',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                Text('Notifications are blocked for MailCrab', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(
                   'If "Request permission" shows no dialog, the OS remembered '
