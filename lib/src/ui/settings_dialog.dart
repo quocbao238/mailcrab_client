@@ -151,12 +151,16 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ok = _testResult?.startsWith('✓') ?? false;
+    // AlertDialog keeps 40dp of inset on each side, so a fixed 420 forced the
+    // content wider than a phone screen. Take whichever is smaller.
+    final available = MediaQuery.sizeOf(context).width - 80;
+    final width = available < 420 ? available : 420.0;
+    final narrow = width < 380;
 
     return AlertDialog(
       title: const Text('Settings'),
-
       content: SizedBox(
-        width: 420,
+        width: width,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -198,7 +202,13 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                   ),
                 ),
               const SizedBox(height: 8),
-              Row(
+              // Wrap, not Row: on a phone the button plus the result message
+              // is wider than the dialog, and the message must fall to its
+              // own line instead of overflowing.
+              Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   OutlinedButton.icon(
                     onPressed: _testing ? null : _testConnection,
@@ -211,12 +221,12 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                         : const Icon(Icons.wifi_tethering, size: 18),
                     label: const Text('Test connection'),
                   ),
-                  const SizedBox(width: 12),
                   if (_testResult != null)
-                    Expanded(
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: width),
                       child: Text(
                         _testResult!,
-                        maxLines: 2,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: ok
@@ -254,21 +264,27 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               ),
               const SizedBox(height: 8),
               SegmentedButton<String>(
-                segments: const [
+                // Icons push the three segments past a phone's width; the
+                // labels alone still say what each one does.
+                showSelectedIcon: false,
+                segments: [
                   ButtonSegment(
                     value: 'system',
-                    label: Text('System'),
-                    icon: Icon(Icons.brightness_auto, size: 16),
+                    label: const Text('System'),
+                    icon: narrow
+                        ? null
+                        : const Icon(Icons.brightness_auto, size: 16),
                   ),
                   ButtonSegment(
                     value: 'light',
-                    label: Text('Light'),
-                    icon: Icon(Icons.light_mode, size: 16),
+                    label: const Text('Light'),
+                    icon:
+                        narrow ? null : const Icon(Icons.light_mode, size: 16),
                   ),
                   ButtonSegment(
                     value: 'dark',
-                    label: Text('Dark'),
-                    icon: Icon(Icons.dark_mode, size: 16),
+                    label: const Text('Dark'),
+                    icon: narrow ? null : const Icon(Icons.dark_mode, size: 16),
                   ),
                 ],
                 selected: {_themeMode},
@@ -332,12 +348,15 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                         color: theme.colorScheme.outline,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        'MailCrab Client — github.com/quocbao238',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          decoration: TextDecoration.underline,
-                          decorationColor: theme.colorScheme.primary,
+                      Flexible(
+                        child: Text(
+                          'MailCrab Client — github.com/quocbao238',
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            decoration: TextDecoration.underline,
+                            decorationColor: theme.colorScheme.primary,
+                          ),
                         ),
                       ),
                     ],
@@ -410,19 +429,21 @@ class _PermissionSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        // Wrap rather than Row: "Request permission" does not fit beside the
+        // status on a phone and has to move to its own line.
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text('System permission:', style: theme.textTheme.bodySmall),
-            const SizedBox(width: 8),
             Icon(Icons.circle, size: 10, color: chipColor),
-            const SizedBox(width: 4),
             Text(
               chipLabel,
               style: theme.textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const Spacer(),
             if (status == NotificationPermissionStatus.denied)
               TextButton.icon(
                 onPressed: requesting ? null : onRequest,
