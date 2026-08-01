@@ -92,6 +92,22 @@ jobs:
   macos:
     needs: [prepare, test]
     runs-on: macos-latest
+    # Signing and notarisation are skipped when these are unset, so the
+    # workflow still produces an (unsigned) DMG in a fork or before the
+    # secrets exist. Set all six to get a notarised build:
+    #   MACOS_CERT_P12_BASE64  base64 of the Developer ID Application .p12
+    #   MACOS_CERT_PASSWORD    password used when exporting that .p12
+    #   MACOS_SIGN_IDENTITY    e.g. "Developer ID Application: Name (TEAMID)"
+    #   ASC_KEY_P8_BASE64      base64 of the App Store Connect API .p8 key
+    #   ASC_KEY_ID             that key's ID
+    #   ASC_ISSUER_ID          the issuer UUID it belongs to
+    env:
+      MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+      MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+      MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+      ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -99,16 +115,70 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Build DMG
+
+      - name: Import signing certificate
+        if: env.MACOS_CERT_P12_BASE64 != ''
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 900 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          echo "$MACOS_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" \
+            -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "" "$KEYCHAIN" >/dev/null
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+          rm "$RUNNER_TEMP/cert.p12"
+
+      - name: Build app
         run: |
           flutter build macos --release \
             --build-name=${{ needs.prepare.outputs.version }} \
             --build-number=${{ github.run_number }}
+
+      - name: Sign app
+        if: env.MACOS_CERT_P12_BASE64 != ''
+        run: |
+          APP="build/macos/Build/Products/Release/MailCrab.app"
+          # Inside out: Apple deprecates --deep, and a bundle's signature only
+          # stays valid if everything nested in it was signed first.
+          find "$APP/Contents/Frameworks" \
+            \( -name "*.framework" -o -name "*.dylib" \) -maxdepth 1 -print0 |
+            while IFS= read -r -d '' f; do
+              codesign --force --timestamp --options runtime \
+                --sign "$MACOS_SIGN_IDENTITY" "$f"
+            done
+          # Hardened runtime (--options runtime) is required to notarise.
+          codesign --force --timestamp --options runtime \
+            --entitlements macos/Runner/Release.entitlements \
+            --sign "$MACOS_SIGN_IDENTITY" "$APP"
+          codesign --verify --strict --verbose=2 "$APP"
+
+      - name: Package DMG
+        run: |
           mkdir dmg_stage
           cp -R build/macos/Build/Products/Release/MailCrab.app dmg_stage/
           ln -s /Applications dmg_stage/Applications
           hdiutil create -volname "MailCrab" -srcfolder dmg_stage -ov -format UDZO \
             "MailCrab-macos.dmg"
+
+      - name: Notarise DMG
+        if: env.MACOS_CERT_P12_BASE64 != '' && env.ASC_KEY_P8_BASE64 != ''
+        run: |
+          codesign --force --timestamp --sign "$MACOS_SIGN_IDENTITY" \
+            "MailCrab-macos.dmg"
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/asc.p8"
+          xcrun notarytool submit "MailCrab-macos.dmg" \
+            --key "$RUNNER_TEMP/asc.p8" \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --wait
+          rm "$RUNNER_TEMP/asc.p8"
+          # Stapling embeds the ticket so Gatekeeper clears the app offline.
+          xcrun stapler staple "MailCrab-macos.dmg"
+          xcrun stapler validate "MailCrab-macos.dmg"
+
       - uses: actions/upload-artifact@v4
         with:
           name: macos
