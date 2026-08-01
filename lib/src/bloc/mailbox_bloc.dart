@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../models/models.dart';
 import '../services/api_client.dart';
+import '../services/mailbox_repository.dart';
 import '../services/badge_service.dart';
 import '../services/notification_service.dart';
 import '../services/settings_service.dart';
@@ -22,9 +23,10 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
   final NotificationService _notifications;
   final Connectivity _connectivity;
   final SsoSessionProvider _sso;
+  final MailboxRepositoryFactory _repositoryFactory;
   final BadgeService _badge = BadgeService();
 
-  MailCrabApi _api;
+  MailboxRepository _api;
   WsListener? _ws;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   Timer? _pollTimer;
@@ -39,9 +41,10 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
     required this._notifications,
     Connectivity? connectivity,
     this._sso = const NoSsoSession(),
+    MailboxRepositoryFactory repositoryFactory = MailCrabApi.create,
   })  : _connectivity = connectivity ?? Connectivity(),
-        _api = MailCrabApi(settings.serverUrl,
-            authCookie: settings.authCookie),
+        _repositoryFactory = repositoryFactory,
+        _api = repositoryFactory(settings.serverUrl, settings.authCookie),
         super(MailboxState(settings: settings)) {
     on<MailboxStarted>(_onStarted);
     on<MailboxRefreshRequested>(_onRefresh);
@@ -67,7 +70,7 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
     if (!isClosed) add(event);
   }
 
-  MailCrabApi get api => _api;
+  MailboxRepository get api => _api;
 
   NotificationService get notifications => _notifications;
 
@@ -136,7 +139,7 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
     ));
     await SettingsService.save(settings);
     _api.dispose();
-    _api = MailCrabApi(settings.serverUrl, authCookie: cookie);
+    _api = _repositoryFactory(settings.serverUrl, cookie);
     _connectWs();
 
     await _loadMessages(emit);
@@ -234,8 +237,8 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
 
       _renewAttempted = false;
       _api.dispose();
-      _api = MailCrabApi(event.settings.serverUrl,
-          authCookie: event.settings.authCookie);
+      _api = _repositoryFactory(
+          event.settings.serverUrl, event.settings.authCookie);
       emit(state.copyWith(
         messages: const [],
         selectedId: null,

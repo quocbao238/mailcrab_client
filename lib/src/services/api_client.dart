@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../models/models.dart';
+import 'mailbox_repository.dart';
 
 class MailCrabApiException implements Exception {
   final String message;
@@ -24,9 +25,14 @@ class MailCrabAuthException extends MailCrabApiException {
                 'browser and paste the session cookie in Settings.');
 }
 
-class MailCrabApi {
+class MailCrabApi implements MailboxRepository {
+  static MailboxRepository create(String serverUrl, String authCookie) =>
+      MailCrabApi(serverUrl, authCookie: authCookie);
+
+  @override
   final Uri base;
 
+  @override
   final Map<String, String> authHeaders;
   final http.Client _client;
 
@@ -58,14 +64,18 @@ class MailCrabApi {
 
   Uri _endpoint(String path) => base.replace(path: '${base.path}$path');
 
+  @override
   Uri get wsUri => _endpoint('/ws')
       .replace(scheme: base.scheme == 'https' ? 'wss' : 'ws');
 
+  @override
   Uri bodyUri(String id) => _endpoint('/api/message/$id/body');
 
+  @override
   Uri attachmentUri(String id, int index) =>
       _endpoint('/api/message/$id/attachment/$index');
 
+  @override
   Future<List<MailMessageMetadata>> fetchMessages() async {
     final res = await _get('/api/messages');
     final list = jsonDecode(res.body) as List<dynamic>;
@@ -75,29 +85,35 @@ class MailCrabApi {
         .toList();
   }
 
+  @override
   Future<MailMessage> fetchMessage(String id) async {
     final res = await _get('/api/message/$id');
     return MailMessage.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  @override
   Future<String> fetchRaw(String id) async {
     final res = await _get('/api/message/$id/raw');
     return utf8.decode(res.bodyBytes, allowMalformed: true);
   }
 
+  @override
   Future<Uint8List> fetchAttachmentBytes(String id, int index) async {
     final res = await _get('/api/message/$id/attachment/$index');
     return res.bodyBytes;
   }
 
+  @override
   Future<String> fetchVersion() async {
     final res = await _get('/api/version');
     final json = jsonDecode(res.body) as Map<String, dynamic>;
     return json['version_be']?.toString() ?? 'unknown';
   }
 
+  @override
   Future<void> deleteMessage(String id) => _post('/api/delete/$id');
 
+  @override
   Future<void> deleteAll() => _post('/api/delete-all');
 
   Future<http.Response> _get(String path) => _send('GET', path);
@@ -127,5 +143,6 @@ class MailCrabApi {
     }
   }
 
+  @override
   void dispose() => _client.close();
 }
