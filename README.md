@@ -69,3 +69,11 @@ Install the APK (enable "Install from unknown sources" if asked). To reach a Mai
 
 2. Open MailCrab Client — it connects to `http://localhost:1080` by default. Use **Settings** (⚙) to point it at any other server and hit **Test connection**.
 3. Point your application's SMTP settings at `localhost:1025` and watch the mail roll in — with a notification for every message.
+
+### Servers behind an SSO login
+
+If your MailCrab sits behind an auth gateway (the API answers with a redirect to a sign-in page), hit **Settings → Sign in with SSO**. A window opens, you complete the normal login, and the app keeps the resulting session cookie — sending it with every REST call and on the WebSocket handshake.
+
+**Expiry takes care of itself.** The gateway cookie is short-lived, but the identity provider's own session outlives it and stays in the sign-in window's cookie store. When a request comes back rejected, the app replays the redirect chain in the background and picks up a fresh cookie with no interaction — the status chip briefly reads "Signing in…". Only when the provider session itself is gone do you see a banner asking you to sign in again.
+
+On platforms without an embedded WebView (Linux), or for CI, paste a cookie manually instead: sign in with a browser, copy the `Cookie` request header from DevTools → Network, and put it in **Settings → Auth cookie**.

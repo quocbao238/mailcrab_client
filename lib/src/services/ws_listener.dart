@@ -5,13 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../models/models.dart';
+import 'ws_connect_stub.dart' if (dart.library.io) 'ws_connect_io.dart';
 
 enum WsStatus { connecting, connected, disconnected }
 
-/// Listens on MailCrab's `/ws` endpoint for new-message events and
-/// reconnects automatically with exponential backoff.
 class WsListener {
   final Uri wsUri;
+
+  final Map<String, String> headers;
   final void Function(MailMessageMetadata metadata) onMessage;
   final void Function(WsStatus status) onStatus;
 
@@ -23,6 +24,7 @@ class WsListener {
 
   WsListener({
     required this.wsUri,
+    this.headers = const {},
     required this.onMessage,
     required this.onStatus,
   });
@@ -31,7 +33,7 @@ class WsListener {
     if (_disposed) return;
     onStatus(WsStatus.connecting);
     try {
-      final channel = WebSocketChannel.connect(wsUri);
+      final channel = connectWebSocket(wsUri, headers);
       _channel = channel;
       channel.ready.then((_) {
         if (_disposed) return;
@@ -48,8 +50,6 @@ class WsListener {
           cancelOnError: true,
         );
       }).catchError((Object e) {
-        // e.g. an HTTP 400 from a proxy that strips upgrade headers —
-        // the stream may never emit in this case, so reconnect from here.
         debugPrint('MailCrab ws: handshake failed: $e');
         _scheduleReconnect();
       });
@@ -71,8 +71,6 @@ class WsListener {
     }
   }
 
-  /// Sends a MailCrab action, e.g. `{"Open": "<id>"}` or `"RemoveAll"`.
-  /// No-op when the socket is down; callers should not rely on delivery.
   void send(Object action) {
     try {
       _channel?.sink.add(jsonEncode(action));

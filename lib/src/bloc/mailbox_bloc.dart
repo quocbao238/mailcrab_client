@@ -10,17 +10,18 @@ import '../services/api_client.dart';
 import '../services/badge_service.dart';
 import '../services/notification_service.dart';
 import '../services/settings_service.dart';
+import '../services/sso_session.dart';
 import '../services/ws_listener.dart';
 
 part 'mailbox_event.dart';
 part 'mailbox_state.dart';
 
 class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
-  /// Poll interval used when the WebSocket is unavailable but HTTP works.
   static const pollInterval = Duration(seconds: 10);
 
   final NotificationService _notifications;
   final Connectivity _connectivity;
+  final SsoSessionProvider _sso;
   final BadgeService _badge = BadgeService();
 
   MailCrabApi _api;
@@ -29,16 +30,18 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
   Timer? _pollTimer;
   bool _pollInFlight = false;
 
-  /// Until the first successful list fetch, "unseen id" does not mean "new
-  /// mail" — suppress notifications so startup doesn't replay the mailbox.
+  bool _renewAttempted = false;
+
   bool _hasFetchedOnce = false;
 
   MailboxBloc({
     required AppSettings settings,
     required this._notifications,
     Connectivity? connectivity,
+    this._sso = const NoSsoSession(),
   })  : _connectivity = connectivity ?? Connectivity(),
-        _api = MailCrabApi(settings.serverUrl),
+        _api = MailCrabApi(settings.serverUrl,
+            authCookie: settings.authCookie),
         super(MailboxState(settings: settings)) {
     on<MailboxStarted>(_onStarted);
     on<MailboxRefreshRequested>(_onRefresh);
@@ -56,13 +59,16 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
     on<_ConnectivityChanged>(_onConnectivityChanged);
     on<_PollTick>(_onPollTick);
 
-    _notifications.onSelectMessage = (id) => add(MailboxMessageSelected(id));
+    _notifications.onSelectMessage =
+        (id) => _safeAdd(MailboxMessageSelected(id));
   }
 
-  /// Exposed for the UI to build attachment/body URLs and fetch raw content.
+  void _safeAdd(MailboxEvent event) {
+    if (!isClosed) add(event);
+  }
+
   MailCrabApi get api => _api;
 
-  /// Exposed for the settings UI to check/request notification permission.
   NotificationService get notifications => _notifications;
 
   Future<void> _onStarted(
@@ -83,6 +89,7 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
       final messages = await _api.fetchMessages();
       _sort(messages);
       _hasFetchedOnce = true;
+      _renewAttempted = false;
       final selectionGone = state.selectedId != null &&
           !messages.any((m) => m.id == state.selectedId);
       emit(state.copyWith(
@@ -91,12 +98,59 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
         selectedId: selectionGone ? null : state.selectedId,
         selectedMessage: selectionGone ? null : state.selectedMessage,
       ));
+    } on MailCrabAuthException catch (e) {
+      await _handleAuthFailure(emit, e);
     } catch (e) {
       emit(state.copyWith(
         loadingList: false,
         error: 'Could not load messages: $e',
       ));
     }
+  }
+
+  Future<void> _handleAuthFailure(
+      Emitter<MailboxState> emit, MailCrabAuthException e) async {
+    if (!_sso.isSupported || _renewAttempted) {
+      _enterUnauthorized(emit, e);
+      return;
+    }
+    _renewAttempted = true;
+    _stopPolling();
+    emit(state.copyWith(
+      serverStatus: ServerStatus.reauthenticating,
+      loadingList: false,
+      error: null,
+    ));
+
+    final cookie = await _sso.renew(_api.base);
+    if (cookie == null || cookie == state.settings.authCookie) {
+      _enterUnauthorized(emit, e);
+      return;
+    }
+
+    final settings = state.settings.copyWith(authCookie: cookie);
+
+    emit(state.copyWith(
+      settings: settings,
+      serverStatus: ServerStatus.connecting,
+    ));
+    await SettingsService.save(settings);
+    _api.dispose();
+    _api = MailCrabApi(settings.serverUrl, authCookie: cookie);
+    _connectWs();
+
+    await _loadMessages(emit);
+  }
+
+  void _enterUnauthorized(Emitter<MailboxState> emit, MailCrabAuthException e) {
+    _stopPolling();
+    _ws?.dispose();
+    _ws = null;
+    emit(state.copyWith(
+      loadingList: false,
+      serverStatus: ServerStatus.unauthorized,
+      error: e.message,
+    ));
   }
 
   Future<void> _onSelect(
@@ -115,6 +169,9 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
       if (state.selectedId == id) {
         emit(state.copyWith(selectedMessage: message, loadingMessage: false));
       }
+    } on MailCrabAuthException catch (e) {
+      emit(state.copyWith(loadingMessage: false));
+      await _handleAuthFailure(emit, e);
     } catch (e) {
       if (state.selectedId == id) {
         emit(state.copyWith(
@@ -140,6 +197,8 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
         selectedId: gone ? null : state.selectedId,
         selectedMessage: gone ? null : state.selectedMessage,
       ));
+    } on MailCrabAuthException catch (e) {
+      await _handleAuthFailure(emit, e);
     } catch (e) {
       emit(state.copyWith(error: 'Could not delete message: $e'));
     }
@@ -154,6 +213,8 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
         selectedId: null,
         selectedMessage: null,
       ));
+    } on MailCrabAuthException catch (e) {
+      await _handleAuthFailure(emit, e);
     } catch (e) {
       emit(state.copyWith(error: 'Could not delete messages: $e'));
     }
@@ -162,15 +223,19 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
   Future<void> _onSettingsUpdated(
       MailboxSettingsUpdated event, Emitter<MailboxState> emit) async {
     final serverChanged =
-        event.settings.serverUrl != state.settings.serverUrl;
+        event.settings.serverUrl != state.settings.serverUrl ||
+            event.settings.authCookie != state.settings.authCookie;
     emit(state.copyWith(settings: event.settings));
     await SettingsService.save(event.settings);
 
     if (serverChanged) {
       _stopPolling();
       _hasFetchedOnce = false;
+
+      _renewAttempted = false;
       _api.dispose();
-      _api = MailCrabApi(event.settings.serverUrl);
+      _api = MailCrabApi(event.settings.serverUrl,
+          authCookie: event.settings.authCookie);
       emit(state.copyWith(
         messages: const [],
         selectedId: null,
@@ -194,25 +259,21 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
     }
   }
 
-  /// The WebSocket only carries metadata, so fetch the full message to show
-  /// a body preview in the notification. Read-only on the server — it does
-  /// NOT mark the message as opened.
   Future<void> _notifyWithPreview(MailMessageMetadata meta) async {
     String? snippet;
     try {
       final full = await _api.fetchMessage(meta.id);
       snippet = full.snippet;
     } catch (_) {
-      // Preview is best-effort; notify with the subject alone.
     }
     await _notifications.showNewMail(meta, snippet: snippet);
   }
 
   Future<void> _onWsStatusChanged(
       _WsStatusChanged event, Emitter<MailboxState> emit) async {
+    if (state.serverStatus == ServerStatus.unauthorized) return;
     final wsDownStatuses = {ServerStatus.offline, ServerStatus.polling};
-    // While the polling fallback is delivering mail, WS retry cycles
-    // (connecting → disconnected → …) should not flicker the status chip.
+
     final mapped = switch (event.status) {
       WsStatus.connected => ServerStatus.connected,
       WsStatus.connecting => state.serverStatus == ServerStatus.polling
@@ -231,13 +292,10 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
     final regained = wsDownStatuses.contains(state.serverStatus) &&
         mapped == ServerStatus.connected;
     emit(state.copyWith(serverStatus: mapped));
-    // Catch up on mail that arrived while the socket was down.
+
     if (regained) await _loadMessages(emit);
   }
 
-  /// Fallback for servers whose proxy blocks WebSocket upgrades: fetch the
-  /// message list, notify for ids we have not seen, and reflect a degraded
-  /// but functional connection in the UI.
   Future<void> _onPollTick(_PollTick event, Emitter<MailboxState> emit) async {
     if (_pollInFlight || state.serverStatus == ServerStatus.connected) return;
     _pollInFlight = true;
@@ -249,6 +307,7 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
           fetched.where((m) => !known.contains(m.id)).toList().reversed;
       final notifyForFresh = _hasFetchedOnce;
       _hasFetchedOnce = true;
+      _renewAttempted = false;
       if (state.serverStatus != ServerStatus.connected) {
         debugPrint(
             'MailCrab poll: ${fetched.length} messages, ${fresh.length} new');
@@ -262,6 +321,8 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
           }
         }
       }
+    } on MailCrabAuthException catch (e) {
+      await _handleAuthFailure(emit, e);
     } catch (_) {
       if (state.serverStatus == ServerStatus.polling) {
         emit(state.copyWith(serverStatus: ServerStatus.offline));
@@ -273,8 +334,9 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
 
   void _startPolling() {
     if (_pollTimer != null) return;
-    _pollTimer = Timer.periodic(pollInterval, (_) => add(const _PollTick()));
-    add(const _PollTick());
+    _pollTimer =
+        Timer.periodic(pollInterval, (_) => _safeAdd(const _PollTick()));
+    _safeAdd(const _PollTick());
   }
 
   void _stopPolling() {
@@ -291,7 +353,6 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
     final regained = state.networkStatus == NetworkStatus.offline && online;
     emit(state.copyWith(networkStatus: mapped));
     if (regained) {
-      // Reconnect immediately instead of waiting out the backoff.
       _connectWs();
       await _loadMessages(emit);
     }
@@ -300,27 +361,27 @@ class MailboxBloc extends Bloc<MailboxEvent, MailboxState> {
   void _watchConnectivity() {
     _connectivitySub?.cancel();
     _connectivitySub = _connectivity.onConnectivityChanged
-        .listen((results) => add(_ConnectivityChanged(results)));
+        .listen((results) => _safeAdd(_ConnectivityChanged(results)));
     _connectivity
         .checkConnectivity()
-        .then((results) => add(_ConnectivityChanged(results)))
+        .then((results) => _safeAdd(_ConnectivityChanged(results)))
         .catchError((Object _) {});
   }
 
   void _connectWs() {
+    if (state.serverStatus == ServerStatus.unauthorized) return;
     _ws?.dispose();
     _ws = WsListener(
       wsUri: _api.wsUri,
-      onMessage: (meta) => add(_MailReceived(meta)),
-      onStatus: (status) => add(_WsStatusChanged(status)),
+      headers: _api.authHeaders,
+      onMessage: (meta) => _safeAdd(_MailReceived(meta)),
+      onStatus: (status) => _safeAdd(_WsStatusChanged(status)),
     )..connect();
   }
 
   void _sort(List<MailMessageMetadata> messages) =>
-      messages.sort((a, b) => b.time.compareTo(a.time)); // newest first
+      messages.sort((a, b) => b.time.compareTo(a.time));
 
-  /// Keeps the app-icon badge in sync with the unread count on every
-  /// state transition, regardless of which event caused it.
   @override
   void onChange(Change<MailboxState> change) {
     super.onChange(change);

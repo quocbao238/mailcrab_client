@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Icon button that spins while [spinning] is true and always completes a
-/// full turn, so even instant refreshes give visible feedback.
 class SpinIconButton extends StatefulWidget {
   final IconData icon;
   final String tooltip;
@@ -71,7 +69,6 @@ class _SpinIconButtonState extends State<SpinIconButton>
   }
 }
 
-/// Icon button that bounces (scales down and springs back) when pressed.
 class BouncyIconButton extends StatefulWidget {
   final IconData icon;
   final String tooltip;
@@ -125,8 +122,6 @@ class _BouncyIconButtonState extends State<BouncyIconButton>
   }
 }
 
-/// Status dot with a radar-style expanding ring while [pinging] is true
-/// (used for the "Live" indicator), and a steady dot otherwise.
 class StatusPingDot extends StatefulWidget {
   final Color color;
   final bool pinging;

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../bloc/mailbox_bloc.dart';
+import '../services/sso_session_webview.dart';
 import 'animated_widgets.dart';
+import 'sso_login_dialog.dart';
 import 'message_detail.dart';
 import 'message_list.dart';
 import 'settings_dialog.dart';
@@ -19,8 +22,6 @@ class HomePage extends StatelessWidget {
         final bloc = context.read<MailboxBloc>();
         final narrow = MediaQuery.sizeOf(context).width < _wideBreakpoint;
 
-        // Gmail-style on phones: an open message is its own screen with a
-        // standard app bar (back + actions). Android back clears selection.
         if (narrow && state.selectedId != null) {
           return PopScope(
             canPop: false,
@@ -45,8 +46,7 @@ class HomePage extends StatelessWidget {
               ],
             ),
             actions: narrow
-                // Compact on phones: status dot + overflow menu.
-                // Refresh is covered by pull-to-refresh on the list.
+
                 ? [
                     _StatusChip(state: state, compact: true),
                     PopupMenuButton<_MenuAction>(
@@ -119,7 +119,9 @@ class HomePage extends StatelessWidget {
                       'No internet connection — reconnecting automatically when the network returns.'),
                   actions: const [SizedBox.shrink()],
                 ),
-              if (state.error != null)
+              if (state.serverStatus == ServerStatus.unauthorized)
+                _AuthRequiredBanner(state: state)
+              else if (state.error != null)
                 MaterialBanner(
                   content: Text(state.error!),
                   leading: const Icon(Icons.error_outline),
@@ -182,10 +184,59 @@ class HomePage extends StatelessWidget {
 
 enum _MenuAction { refresh, deleteAll, settings }
 
+class _AuthRequiredBanner extends StatelessWidget {
+  final MailboxState state;
+
+  const _AuthRequiredBanner({required this.state});
+
+  Future<void> _signIn(BuildContext context) async {
+    final bloc = context.read<MailboxBloc>();
+    final cookie = await showSsoLoginDialog(
+      context,
+      serverUrl: state.settings.serverUrl,
+    );
+    if (cookie == null || cookie.isEmpty) return;
+    bloc.add(MailboxSettingsUpdated(
+      bloc.state.settings.copyWith(authCookie: cookie),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final canUseWebView = WebViewSsoSession().isSupported;
+    return MaterialBanner(
+      backgroundColor: theme.colorScheme.errorContainer,
+      leading: const Icon(Icons.lock_outline),
+      content: Text(
+        state.error ?? 'Sign-in required — add an auth cookie in Settings.',
+      ),
+      actions: [
+        if (canUseWebView)
+          TextButton(
+            onPressed: () => _signIn(context),
+            child: const Text('Sign in'),
+          )
+        else
+          TextButton(
+            onPressed: () => launchUrl(
+              Uri.parse(state.settings.serverUrl),
+              mode: LaunchMode.externalApplication,
+            ),
+            child: const Text('Sign in in browser'),
+          ),
+        TextButton(
+          onPressed: () => showSettingsDialog(context),
+          child: const Text('Settings'),
+        ),
+      ],
+    );
+  }
+}
+
 class _StatusChip extends StatelessWidget {
   final MailboxState state;
 
-  /// Dot only (no label) — used in the phone app bar.
   final bool compact;
 
   const _StatusChip({required this.state, this.compact = false});
@@ -200,6 +251,8 @@ class _StatusChip extends StatelessWidget {
             ServerStatus.connecting => (Colors.orange, 'Connecting…'),
             ServerStatus.polling => (Colors.orange, 'Polling'),
             ServerStatus.offline => (Colors.red, 'Offline'),
+            ServerStatus.reauthenticating => (Colors.orange, 'Signing in…'),
+            ServerStatus.unauthorized => (Colors.red, 'Sign-in required'),
           };
 
     return Tooltip(
@@ -214,6 +267,11 @@ class _StatusChip extends StatelessWidget {
                     'checking for new mail every 10 seconds',
               ServerStatus.offline =>
                 'Cannot reach MailCrab — retrying automatically',
+              ServerStatus.reauthenticating =>
+                'Session expired — renewing it in the background',
+              ServerStatus.unauthorized =>
+                'The server requires an SSO sign-in — add or refresh the '
+                    'auth cookie in Settings',
             },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),

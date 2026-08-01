@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -12,13 +13,28 @@ class MailCrabApiException implements Exception {
   String toString() => message;
 }
 
+class MailCrabAuthException extends MailCrabApiException {
+  final bool hadCookie;
+
+  MailCrabAuthException({required this.hadCookie})
+      : super(hadCookie
+            ? 'Session expired — the auth cookie was rejected. Sign in '
+                'again in your browser and paste the new cookie in Settings.'
+            : 'This server is behind an SSO sign-in. Sign in with your '
+                'browser and paste the session cookie in Settings.');
+}
+
 class MailCrabApi {
-  /// Normalized base URI without a trailing slash, may contain a path prefix.
   final Uri base;
+
+  final Map<String, String> authHeaders;
   final http.Client _client;
 
-  MailCrabApi(String serverUrl, {http.Client? client})
+  MailCrabApi(String serverUrl, {String authCookie = '', http.Client? client})
       : base = normalizeServerUrl(serverUrl),
+        authHeaders = authCookie.trim().isEmpty
+            ? const {}
+            : {'Cookie': authCookie.trim()},
         _client = client ?? http.Client();
 
   static Uri normalizeServerUrl(String input) {
@@ -42,7 +58,6 @@ class MailCrabApi {
 
   Uri _endpoint(String path) => base.replace(path: '${base.path}$path');
 
-  /// WebSocket endpoint derived from the base URL.
   Uri get wsUri => _endpoint('/ws')
       .replace(scheme: base.scheme == 'https' ? 'wss' : 'ws');
 
@@ -70,6 +85,11 @@ class MailCrabApi {
     return utf8.decode(res.bodyBytes, allowMalformed: true);
   }
 
+  Future<Uint8List> fetchAttachmentBytes(String id, int index) async {
+    final res = await _get('/api/message/$id/attachment/$index');
+    return res.bodyBytes;
+  }
+
   Future<String> fetchVersion() async {
     final res = await _get('/api/version');
     final json = jsonDecode(res.body) as Map<String, dynamic>;
@@ -80,23 +100,27 @@ class MailCrabApi {
 
   Future<void> deleteAll() => _post('/api/delete-all');
 
-  Future<http.Response> _get(String path) async {
-    final res = await _client
-        .get(_endpoint(path))
-        .timeout(const Duration(seconds: 10));
-    _check(res, path);
-    return res;
-  }
+  Future<http.Response> _get(String path) => _send('GET', path);
 
-  Future<http.Response> _post(String path) async {
-    final res = await _client
-        .post(_endpoint(path))
-        .timeout(const Duration(seconds: 10));
+  Future<http.Response> _post(String path) => _send('POST', path);
+
+  Future<http.Response> _send(String method, String path) async {
+    final request = http.Request(method, _endpoint(path))
+      ..followRedirects = false
+      ..headers.addAll(authHeaders);
+    final streamed =
+        await _client.send(request).timeout(const Duration(seconds: 10));
+    final res = await http.Response.fromStream(streamed);
     _check(res, path);
     return res;
   }
 
   void _check(http.Response res, String path) {
+    if ((res.statusCode >= 300 && res.statusCode < 400) ||
+        res.statusCode == 401 ||
+        res.statusCode == 403) {
+      throw MailCrabAuthException(hadCookie: authHeaders.isNotEmpty);
+    }
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw MailCrabApiException(
           'MailCrab returned HTTP ${res.statusCode} for $path');

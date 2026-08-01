@@ -1,5 +1,3 @@
-/// Data models mirroring MailCrab's JSON API types
-/// (see backend `MailMessage` / `MailMessageMetadata`).
 library;
 
 import 'package:equatable/equatable.dart';
@@ -15,7 +13,6 @@ class Address extends Equatable {
         email: json['email'] as String?,
       );
 
-  /// Human readable form: `Name <email>`, or whichever part is present.
   String get display {
     final n = name?.trim() ?? '';
     final e = email?.trim() ?? '';
@@ -25,7 +22,6 @@ class Address extends Equatable {
     return '(unknown)';
   }
 
-  /// Short form for list tiles: prefer the display name.
   String get short {
     final n = name?.trim() ?? '';
     if (n.isNotEmpty) return n;
@@ -90,7 +86,6 @@ class MailMessageMetadata extends Equatable {
   final List<Address> to;
   final String subject;
 
-  /// Unix timestamp in seconds.
   final int time;
   final String date;
   final String size;
@@ -240,8 +235,6 @@ class MailMessage extends Equatable {
 
   String get displaySubject => subject.trim().isEmpty ? '(no subject)' : subject;
 
-  /// Short plain-text preview of the body for notifications: prefers the
-  /// text part, falls back to tag-stripped HTML; whitespace collapsed.
   String get snippet {
     var source = text.trim();
     if (source.isEmpty && html.isNotEmpty) {

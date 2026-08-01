@@ -24,7 +24,7 @@ class _MessageListPaneState extends State<MessageListPane> {
   Future<void> _refresh(BuildContext context) async {
     final bloc = context.read<MailboxBloc>();
     bloc.add(const MailboxRefreshRequested());
-    // Keep the spinner visible until the reload finishes.
+
     await bloc.stream
         .firstWhere((s) => !s.loadingList)
         .timeout(const Duration(seconds: 10), onTimeout: () => bloc.state);
@@ -40,7 +40,7 @@ class _MessageListPaneState extends State<MessageListPane> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-              // Gmail-style pill search bar.
+
               child: Material(
                 color: Theme.of(context).colorScheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(28),

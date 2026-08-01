@@ -4,7 +4,6 @@ sealed class MailboxEvent {
   const MailboxEvent();
 }
 
-/// Kick off: initial fetch, WebSocket connection and connectivity watch.
 final class MailboxStarted extends MailboxEvent {
   const MailboxStarted();
 }
@@ -45,25 +44,21 @@ final class MailboxErrorCleared extends MailboxEvent {
   const MailboxErrorCleared();
 }
 
-/// Internal: a new message arrived over the WebSocket.
 final class _MailReceived extends MailboxEvent {
   final MailMessageMetadata metadata;
   const _MailReceived(this.metadata);
 }
 
-/// Internal: WebSocket connection status changed.
 final class _WsStatusChanged extends MailboxEvent {
   final WsStatus status;
   const _WsStatusChanged(this.status);
 }
 
-/// Internal: device connectivity changed (connectivity_plus).
 final class _ConnectivityChanged extends MailboxEvent {
   final List<ConnectivityResult> results;
   const _ConnectivityChanged(this.results);
 }
 
-/// Internal: periodic poll while the WebSocket is down.
 final class _PollTick extends MailboxEvent {
   const _PollTick();
 }

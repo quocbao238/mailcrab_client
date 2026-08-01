@@ -7,12 +7,9 @@ enum NotificationPermissionStatus {
   granted,
   denied,
 
-  /// Platform has no queryable permission model (Linux/Windows/web).
   unknown,
 }
 
-/// Shows a local (native) notification when a new email arrives.
-/// Tapping the notification invokes [onSelectMessage] with the message id.
 class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -75,8 +72,6 @@ class NotificationService {
     }
   }
 
-  /// Current OS-level permission. [NotificationPermissionStatus.unknown] on
-  /// platforms without a queryable permission model.
   Future<NotificationPermissionStatus> checkPermission() async {
     if (kIsWeb) return NotificationPermissionStatus.unknown;
     try {
@@ -117,9 +112,6 @@ class NotificationService {
     }
   }
 
-  /// Shows the OS permission prompt (no-op if already decided) and returns
-  /// the resulting status. On macOS/iOS a previous denial cannot be
-  /// re-prompted — the user must enable it in system settings.
   Future<NotificationPermissionStatus> requestPermission() async {
     if (kIsWeb) return NotificationPermissionStatus.unknown;
     try {
@@ -131,7 +123,6 @@ class NotificationService {
     return checkPermission();
   }
 
-  /// [snippet] is an optional body preview shown under the subject.
   Future<void> showNewMail(MailMessageMetadata meta, {String? snippet}) async {
     if (!_available) {
       debugPrint('Notification skipped (plugin not initialized): '

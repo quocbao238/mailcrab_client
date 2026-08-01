@@ -1,11 +1,14 @@
 part of 'mailbox_bloc.dart';
 
-/// Health of the MailCrab server connection.
-/// [polling] means the WebSocket is unavailable (e.g. a proxy strips the
-/// upgrade headers) but HTTP works, so the app falls back to polling.
-enum ServerStatus { connecting, connected, polling, offline }
+enum ServerStatus {
+  connecting,
+  connected,
+  polling,
+  offline,
+  reauthenticating,
+  unauthorized,
+}
 
-/// Device network connectivity, from connectivity_plus.
 enum NetworkStatus { online, offline }
 
 class MailboxState extends Equatable {

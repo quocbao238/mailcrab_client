@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
@@ -8,8 +10,6 @@ import '../models/models.dart';
 import 'formatting.dart';
 
 class MessageDetailPane extends StatelessWidget {
-  /// Whether the open-in-browser / delete actions render inside the pane
-  /// (desktop). On phones they live in [MobileMessageScreen]'s app bar.
   final bool showActions;
 
   const MessageDetailPane({super.key, this.showActions = true});
@@ -44,8 +44,6 @@ class MessageDetailPane extends StatelessWidget {
   }
 }
 
-/// Gmail-style full-screen message view for phones: its own app bar with a
-/// standard back button and the message actions on the right.
 class MobileMessageScreen extends StatelessWidget {
   const MobileMessageScreen({super.key});
 
@@ -237,7 +235,6 @@ class _Header extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Subject — big Gmail-style title (+ actions on desktop).
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -267,7 +264,7 @@ class _Header extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          // Sender row: avatar · name + "to …" · time (Gmail layout).
+
           Row(
             children: [
               CircleAvatar(
@@ -367,37 +364,69 @@ class _AttachmentsRow extends StatelessWidget {
   }
 }
 
-class _HtmlBody extends StatelessWidget {
+class _HtmlBody extends StatefulWidget {
   final MailMessage message;
 
   const _HtmlBody({required this.message});
 
-  /// Rewrites inline `cid:` image references to MailCrab attachment URLs
-  /// so embedded images render in-app.
-  String _resolveCids(BuildContext context) {
+  @override
+  State<_HtmlBody> createState() => _HtmlBodyState();
+}
+
+class _HtmlBodyState extends State<_HtmlBody> {
+  late Future<String> _html;
+
+  @override
+  void initState() {
+    super.initState();
+    _html = _resolveCids();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HtmlBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message.id != widget.message.id) {
+      _html = _resolveCids();
+    }
+  }
+
+  Future<String> _resolveCids() async {
+    final message = widget.message;
+    final api = context.read<MailboxBloc>().api;
     var html = message.html;
-    final bloc = context.read<MailboxBloc>();
     for (var i = 0; i < message.attachments.length; i++) {
-      final cid = message.attachments[i].contentId;
+      final attachment = message.attachments[i];
+      final cid = attachment.contentId;
       if (cid == null || cid.isEmpty) continue;
       final bare = cid.replaceAll(RegExp(r'^<|>$'), '');
-      html = html.replaceAll(
-        'cid:$bare',
-        bloc.api.attachmentUri(message.id, i).toString(),
-      );
+      if (!html.contains('cid:$bare')) continue;
+      var resolved = api.attachmentUri(message.id, i).toString();
+      if (api.authHeaders.isNotEmpty) {
+        try {
+          final bytes = await api.fetchAttachmentBytes(message.id, i);
+          resolved = 'data:${attachment.mime};base64,${base64Encode(bytes)}';
+        } catch (_) {
+        }
+      }
+      html = html.replaceAll('cid:$bare', resolved);
     }
     return html;
   }
 
   @override
   Widget build(BuildContext context) {
-    return _PaddedScroll(
-      child: HtmlWidget(
-        _resolveCids(context),
-        onTapUrl: (url) {
-          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-          return true;
-        },
+    return FutureBuilder<String>(
+      future: _html,
+
+      initialData: widget.message.html,
+      builder: (context, snapshot) => _PaddedScroll(
+        child: HtmlWidget(
+          snapshot.data ?? widget.message.html,
+          onTapUrl: (url) {
+            launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+            return true;
+          },
+        ),
       ),
     );
   }

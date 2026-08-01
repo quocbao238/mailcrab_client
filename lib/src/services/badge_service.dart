@@ -2,14 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:windows_taskbar/windows_taskbar.dart';
 
-/// Shows the unread-mail count as a badge on the app icon.
-///
-/// - macOS: Dock badge via `NSDockTile.badgeLabel` (method channel,
-///   no permission required).
-/// - Windows: taskbar overlay icon (red circle 1–9 / 9+) via
-///   `windows_taskbar`.
-/// - Elsewhere (Linux/mobile/web): silent no-op — Linux has no standard
-///   cross-desktop badge API.
 class BadgeService {
   static const _channel = MethodChannel('mailcrab/badge');
 

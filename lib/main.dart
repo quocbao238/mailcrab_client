@@ -6,10 +6,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'src/bloc/mailbox_bloc.dart';
 import 'src/services/notification_service.dart';
 import 'src/services/settings_service.dart';
+import 'src/services/sso_session_webview.dart';
 import 'src/ui/home_page.dart';
 
-/// Set via `--dart-define=SCREENSHOT_MODE=true` when capturing marketing
-/// screenshots: skips the OS notification-permission prompt.
 const bool kScreenshotMode = bool.fromEnvironment('SCREENSHOT_MODE');
 
 Future<void> main() async {
@@ -18,7 +17,6 @@ Future<void> main() async {
   final settings = await SettingsService.load();
   final notifications = NotificationService();
   if (!kScreenshotMode) {
-    // Fire-and-forget: the OS permission prompt must not block first paint.
     unawaited(notifications.init());
   }
 
@@ -41,6 +39,7 @@ class MailCrabApp extends StatelessWidget {
       create: (_) => MailboxBloc(
         settings: settings,
         notifications: notifications,
+        sso: WebViewSsoSession(),
       )..add(const MailboxStarted()),
       child: BlocBuilder<MailboxBloc, MailboxState>(
         buildWhen: (prev, curr) => prev.settings != curr.settings,
